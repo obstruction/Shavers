@@ -166,6 +166,15 @@
     letter-spacing: 0.5px;
   }
 
+  .card.unplanned {
+    opacity: 0.72;
+    border: 3px dashed rgba(255,255,255,0.85);
+  }
+
+  .card.unplanned .meal {
+    font-style: italic;
+  }
+
   .card.rec-card {
     background: var(--cream);
     border: 3px dashed var(--grape);
@@ -282,7 +291,7 @@
 
   function render(rows, recNames) {
     const container = document.getElementById("cards");
-    const dataRows = rows.filter(r => r[0] && r[0].trim() !== "" && r[1] && r[1].trim() !== "");
+    const dataRows = rows.filter(r => r[0] && r[0].trim() !== "");
 
     if (dataRows.length === 0 && (!recNames || recNames.length === 0)) {
       container.innerHTML = '<div class="empty">Nothing coming up right now 🌤️</div>';
@@ -294,15 +303,16 @@
       const [date, meal, notes, prep] = row;
       const today = isToday(date);
       const colorClass = PALETTE[i % PALETTE.length];
-      const emoji = pickEmoji(meal);
+      const hasMeal = meal && meal.trim() !== "";
+      const emoji = hasMeal ? pickEmoji(meal) : "❓";
       const tags = [notes, prep].filter(t => t && t.trim() !== "");
 
       html += `
-        <div class="card ${today ? "today" : ""}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
+        <div class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
           <div class="emoji">${emoji}</div>
           ${today ? '<div class="ribbon">⭐ TODAY</div><br>' : ""}
           <div class="day">${date}</div>
-          <div class="meal">${meal}</div>
+          <div class="meal">${hasMeal ? meal : "Pick a meal!"}</div>
           ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
         </div>`;
     });
