@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>This Week</title>
+
+<!--
+  ============================================================
+  SETUP — one thing to change before this works:
+
+  1. In Google Sheets, open the "This Week (phone)" tab.
+  2. File → Share → Publish to web.
+  3. In the first dropdown, pick "This Week (phone)" (not "Entire document").
+  4. In the second dropdown, pick "Comma-separated values (.csv)".
+  5. Click Publish, copy the link it gives you.
+  6. Paste that link as the value of CSV_URL below, replacing the
+     placeholder text.
+
+  Expected columns, in order: Date | Meal | Notes | Prep
+  (header row is skipped automatically)
+  ============================================================
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+  :root {
+    --cream:      #FFFBF3;
+    --ink:        #2B2320;
+    --ink-soft:   #6B5F56;
+    --poppy:      #FF5A5F;
+    --tangerine:  #FF8A3D;
+    --grass:      #3FAE68;
+    --sky:        #2EC4E6;
+    --grape:      #9B5DE5;
+    --bubblegum:  #FF4FA3;
+    --marigold:   #FFB800;
+    --card-radius: 26px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'Nunito', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100vh;
+    padding-bottom: 48px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 28px 20px 18px;
+  }
+
+  header .plate {
+    font-size: 34px;
+    line-height: 1;
+  }
+
+  header h1 {
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 800;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  header .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    font-weight: 700;
+  }
+
+  main {
+    max-width: 460px;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .card {
+    position: relative;
+    border-radius: var(--card-radius);
+    padding: 20px 20px 18px;
+    color: #ffffff;
+    overflow: hidden;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.08);
+  }
+
+  .card .emoji {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    font-size: 40px;
+    opacity: 0.9;
+    transform: rotate(8deg);
+  }
+
+  .card .day {
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 22px;
+    margin: 0 0 6px;
+    padding-right: 46px;
+  }
+
+  .card .meal {
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.35;
+    margin: 0 0 10px;
+    padding-right: 46px;
+  }
+
+  .card .tag {
+    display: inline-block;
+    background: rgba(255,255,255,0.28);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  .card.today {
+    background: var(--marigold) !important;
+    box-shadow: 0 0 0 4px #ffffff, 0 0 0 8px var(--marigold), 0 8px 0 rgba(0,0,0,0.10);
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  .card .ribbon {
+    display: inline-block;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    background: var(--ink);
+    color: var(--marigold);
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .empty, .loading, .error {
+    font-weight: 700;
+    color: var(--ink-soft);
+    padding: 40px 8px;
+    text-align: center;
+    font-size: 15px;
+  }
+
+  .error { color: var(--poppy); }
+
+  footer {
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 11px;
+    font-weight: 700;
+    padding-top: 28px;
+    opacity: 0.6;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card { transition: transform 0.15s ease; }
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="plate">🍽️</div>
+  <div>
+    <h1>This Week</h1>
+    <div class="sub" id="subline">loading…</div>
+  </div>
+</header>
+
+<main id="cards">
+  <div class="loading">Setting the table…</div>
+</main>
+
+<footer id="updated"></footer>
+
+<script>
+  // ---- 1. PASTE YOUR PUBLISHED CSV LINK HERE ----
+  const CSV_URL = "PASTE_YOUR_PUBLISHED_CSV_LINK_HERE";
+  // -------------------------------------------------
+
+  const REFRESH_MINUTES = 5;
+
+  const PALETTE = ["poppy", "tangerine", "grass", "sky", "grape", "bubblegum"];
+  const COLOR_HEX = {
+    poppy: "var(--poppy)", tangerine: "var(--tangerine)", grass: "var(--grass)",
+    sky: "var(--sky)", grape: "var(--grape)", bubblegum: "var(--bubblegum)"
+  };
+
+  const EMOJI_RULES = [
+    [/jo\s?jo|potato|fries|smashed|baked potato/i, "🥔"],
+    [/chicken strip|nugget|tender/i, "🍗"],
+    [/pizza/i, "🍕"],
+    [/taco/i, "🌮"],
+    [/burger/i, "🍔"],
+    [/waffle/i, "🧇"],
+    [/pancake/i, "🥞"],
+    [/french toast|toast/i, "🍞"],
+    [/spaghetti|pasta|noodle|pesto/i, "🍝"],
+    [/ramen|soup/i, "🍜"],
+    [/rice|musubi/i, "🍙"],
+    [/fish|salmon/i, "🐟"],
+    [/apple ?sauce/i, "🍎"],
+    [/salad/i, "🥗"],
+    [/egg/i, "🍳"],
+    [/bacon|sausage|ham/i, "🥓"],
+    [/pork/i, "🐖"],
+    [/steak|beef|burger/i, "🥩"],
+    [/curry|dal/i, "🍛"],
+    [/cake/i, "🧁"],
+    [/dumpling/i, "🥟"]
+  ];
+
+  function pickEmoji(mealText) {
+    if (!mealText) return "✨";
+    for (const [pattern, emoji] of EMOJI_RULES) {
+      if (pattern.test(mealText)) return emoji;
+    }
+    return "🍽️";
+  }
+
+  function isToday(dateCellText) {
+    if (!dateCellText) return false;
+    const match = dateCellText.match(/(\d{1,2})\/(\d{1,2})/);
+    if (!match) return false;
+    const now = new Date();
+    return parseInt(match[1], 10) === now.getMonth() + 1 &&
+           parseInt(match[2], 10) === now.getDate();
+  }
+
+  function render(rows) {
+    const container = document.getElementById("cards");
+    const dataRows = rows.filter(r => r[0] && r[0].trim() !== "" && r[1] && r[1].trim() !== "");
+
+    if (dataRows.length === 0) {
+      container.innerHTML = '<div class="empty">Nothing coming up right now 🌤️</div>';
+      return;
+    }
+
+    let html = "";
+    dataRows.forEach((row, i) => {
+      const [date, meal, notes, prep] = row;
+      const today = isToday(date);
+      const colorClass = PALETTE[i % PALETTE.length];
+      const emoji = pickEmoji(meal);
+      const tags = [notes, prep].filter(t => t && t.trim() !== "");
+
+      html += `
+        <div class="card ${today ? "today" : ""}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
+          <div class="emoji">${emoji}</div>
+          ${today ? '<div class="ribbon">⭐ TODAY</div><br>' : ""}
+          <div class="day">${date}</div>
+          <div class="meal">${meal}</div>
+          ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
+        </div>`;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function showError(message) {
+    document.getElementById("cards").innerHTML = `<div class="error">${message}</div>`;
+  }
+
+  function load() {
+    if (!CSV_URL || CSV_URL.indexOf("PASTE_YOUR") === 0) {
+      showError("Add your published CSV link in the code (see the SETUP comment at the top of the file).");
+      document.getElementById("subline").textContent = "not connected yet";
+      return;
+    }
+
+    fetch(CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now())
+      .then(res => {
+        if (!res.ok) throw new Error("Couldn't reach the sheet (" + res.status + ")");
+        return res.text();
+      })
+      .then(csvText => {
+        const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true });
+        const rows = parsed.data.slice(1); // drop header row
+        render(rows);
+        const now = new Date();
+        document.getElementById("subline").textContent =
+          "updated " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        document.getElementById("updated").textContent =
+          "refreshes automatically every " + REFRESH_MINUTES + " min";
+      })
+      .catch(err => {
+        showError("Couldn't load the sheet. " + err.message);
+        document.getElementById("subline").textContent = "connection trouble";
+      });
+  }
+
+  load();
+  setInterval(load, REFRESH_MINUTES * 60 * 1000);
+</script>
+
+</body>
+</html>
