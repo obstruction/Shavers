@@ -17,10 +17,9 @@
   6. Paste that link as the value of CSV_URL below, replacing the
      placeholder text.
 
-  Expected columns, in order: Date | Meal | Notes | Prep | URL
-  (header row is skipped automatically; URL is optional — blank or
-  a "*" style note is fine, only real http(s) links get turned into
-  a tappable Recipe button)
+  Expected columns, in order: Date | Meal | Notes | Prep | URL | Image
+  (header row is skipped automatically; URL and Image are both
+  optional — cards fall back to a food emoji when there's no image)
   ============================================================
 -->
 
@@ -168,6 +167,23 @@
     letter-spacing: 0.5px;
   }
 
+  .card .thumb {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    object-fit: cover;
+    border: 3px solid rgba(255,255,255,0.85);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.12);
+  }
+
+  .card.has-thumb .day,
+  .card.has-thumb .meal {
+    padding-right: 66px;
+  }
+
   .card .tag.recipe-link {
     background: rgba(0,0,0,0.22);
     text-decoration: none;
@@ -309,17 +325,22 @@
 
     let html = "";
     dataRows.forEach((row, i) => {
-      const [date, meal, notes, prep, url] = row;
+      const [date, meal, notes, prep, url, image] = row;
       const today = isToday(date);
       const colorClass = PALETTE[i % PALETTE.length];
       const hasMeal = meal && meal.trim() !== "";
       const emoji = hasMeal ? pickEmoji(meal) : "❓";
       const tags = [notes, prep].filter(t => t && t.trim() !== "");
       const hasRecipe = hasMeal && url && /^https?:\/\//i.test(url.trim());
+      const hasImage = hasMeal && image && /^https?:\/\//i.test(image.trim());
+
+      const visual = hasImage
+        ? `<img class="thumb" src="${image.trim()}" alt="" onerror="this.outerHTML='<div class=&quot;emoji&quot;>${emoji}</div>';">`
+        : `<div class="emoji">${emoji}</div>`;
 
       html += `
-        <div class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
-          <div class="emoji">${emoji}</div>
+        <div class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"} ${hasImage ? "has-thumb" : ""}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
+          ${visual}
           ${today ? '<div class="ribbon">⭐ TODAY</div><br>' : ""}
           <div class="day">${date}</div>
           <div class="meal">${hasMeal ? meal : "Pick a meal!"}</div>
