@@ -224,7 +224,11 @@
     [/spaghetti|pasta|noodle|pesto/i, "🍝"],
     [/ramen|soup/i, "🍜"],
     [/rice|musubi/i, "🍙"],
+    [/grimp|shrimp/i, "🍤"],
+    [/potato cake|fish cake|crab cake/i, "🥔"],
     [/fish|salmon/i, "🐟"],
+    [/gyro|shawarma|pita/i, "🥙"],
+    [/cupcake|birthday cake/i, "🧁"],
     [/apple ?sauce/i, "🍎"],
     [/salad/i, "🥗"],
     [/egg/i, "🍳"],
@@ -232,7 +236,6 @@
     [/pork/i, "🐖"],
     [/steak|beef|burger/i, "🥩"],
     [/curry|dal/i, "🍛"],
-    [/cake/i, "🧁"],
     [/dumpling/i, "🥟"]
   ];
 
@@ -301,7 +304,11 @@
       })
       .then(csvText => {
         const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true });
-        const rows = parsed.data.slice(1); // drop header row
+        const allRows = parsed.data;
+        // Find the real header row (first cell reads "Day" or "Date") and
+        // start reading data right after it, no matter what's above it.
+        let headerIndex = allRows.findIndex(r => r[0] && /^(day|date)$/i.test(r[0].trim()));
+        const rows = headerIndex === -1 ? allRows.slice(1) : allRows.slice(headerIndex + 1);
         render(rows);
         const now = new Date();
         document.getElementById("subline").textContent =
