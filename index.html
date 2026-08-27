@@ -17,8 +17,10 @@
   6. Paste that link as the value of CSV_URL below, replacing the
      placeholder text.
 
-  Expected columns, in order: Date | Meal | Notes | Prep
-  (header row is skipped automatically)
+  Expected columns, in order: Date | Meal | Notes | Prep | URL
+  (header row is skipped automatically; URL is optional — blank or
+  a "*" style note is fine, only real http(s) links get turned into
+  a tappable Recipe button)
   ============================================================
 -->
 
@@ -166,6 +168,13 @@
     letter-spacing: 0.5px;
   }
 
+  .card .tag.recipe-link {
+    background: rgba(0,0,0,0.22);
+    text-decoration: none;
+    color: #ffffff;
+    cursor: pointer;
+  }
+
   .card.unplanned {
     opacity: 0.72;
     border: 3px dashed rgba(255,255,255,0.85);
@@ -300,12 +309,13 @@
 
     let html = "";
     dataRows.forEach((row, i) => {
-      const [date, meal, notes, prep] = row;
+      const [date, meal, notes, prep, url] = row;
       const today = isToday(date);
       const colorClass = PALETTE[i % PALETTE.length];
       const hasMeal = meal && meal.trim() !== "";
       const emoji = hasMeal ? pickEmoji(meal) : "❓";
       const tags = [notes, prep].filter(t => t && t.trim() !== "");
+      const hasRecipe = hasMeal && url && /^https?:\/\//i.test(url.trim());
 
       html += `
         <div class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"}" style="${today ? "" : `background:${COLOR_HEX[colorClass]}`}">
@@ -314,6 +324,7 @@
           <div class="day">${date}</div>
           <div class="meal">${hasMeal ? meal : "Pick a meal!"}</div>
           ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
+          ${hasRecipe ? `<a class="tag recipe-link" href="${url.trim()}" target="_blank" rel="noopener">📖 Recipe</a>` : ""}
         </div>`;
     });
 
