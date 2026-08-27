@@ -166,6 +166,22 @@
     letter-spacing: 0.5px;
   }
 
+  .card.rec-card {
+    background: var(--cream);
+    border: 3px dashed var(--grape);
+    color: var(--ink);
+    box-shadow: none;
+  }
+
+  .card.rec-card .day {
+    color: var(--grape);
+  }
+
+  .card.rec-card .tag.rec-tag {
+    background: var(--grape);
+    color: #ffffff;
+  }
+
   .empty, .loading, .error {
     font-weight: 700;
     color: var(--ink-soft);
@@ -264,11 +280,11 @@
            parseInt(match[2], 10) === now.getDate();
   }
 
-  function render(rows) {
+  function render(rows, recNames) {
     const container = document.getElementById("cards");
     const dataRows = rows.filter(r => r[0] && r[0].trim() !== "" && r[1] && r[1].trim() !== "");
 
-    if (dataRows.length === 0) {
+    if (dataRows.length === 0 && (!recNames || recNames.length === 0)) {
       container.innerHTML = '<div class="empty">Nothing coming up right now 🌤️</div>';
       return;
     }
@@ -291,6 +307,15 @@
         </div>`;
     });
 
+    if (recNames && recNames.length > 0) {
+      html += `
+        <div class="card rec-card">
+          <div class="emoji">🎲</div>
+          <div class="day">Try something new</div>
+          ${recNames.map(n => `<span class="tag rec-tag">${n}</span>`).join(" ")}
+        </div>`;
+    }
+
     container.innerHTML = html;
   }
 
@@ -311,13 +336,25 @@
         return res.text();
       })
       .then(csvText => {
-        const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: true });
+        const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: false });
         const allRows = parsed.data;
-        // Find the real header row (first cell reads "Day" or "Date") and
-        // start reading data right after it, no matter what's above it.
-        let headerIndex = allRows.findIndex(r => r[0] && /^(day|date)$/i.test(r[0].trim()));
-        const rows = headerIndex === -1 ? allRows.slice(1) : allRows.slice(headerIndex + 1);
-        render(rows);
+
+        const headerIndex = allRows.findIndex(r => r[0] && /^(day|date)$/i.test(r[0].trim()));
+        const recIndex = allRows.findIndex(r => r[0] && /^recommender:?$/i.test(r[0].trim()));
+
+        const dayRowsEnd = recIndex === -1 ? allRows.length : recIndex;
+        const dayRows = headerIndex === -1
+          ? allRows.slice(1, dayRowsEnd)
+          : allRows.slice(headerIndex + 1, dayRowsEnd);
+
+        const recNames = recIndex === -1 ? [] :
+          [...new Set(
+            allRows.slice(recIndex + 1)
+              .map(r => (r[0] || "").trim())
+              .filter(name => name !== "")
+          )];
+
+        render(dayRows, recNames);
         const now = new Date();
         document.getElementById("subline").textContent =
           "updated " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
