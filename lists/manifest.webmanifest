@@ -1,0 +1,23 @@
+{
+  "name": "Anna's Lists",
+  "short_name": "Lists",
+  "description": "Today, Mail Triage, Work and Brain Dump in one place.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2efe8",
+  "theme_color": "#f2efe8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today", "url": "./?go=today", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mail Triage", "url": "./?go=mail", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Work", "url": "./?go=work", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Brain Dump", "url": "./?go=brain", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
