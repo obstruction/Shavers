@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lists</title>
+
+<!--
+  ============================================================
+  Anna's Lists — installable home-screen app (PWA)
+
+  This page is a launcher. Each card opens one of the Claude
+  artifact pages, where the real checklists (and the morning
+  rebuilds) live. Nothing is stored here.
+
+  To change a list's link, edit the LISTS block in the script
+  at the bottom of this file. If you rename or add one, also
+  update "shortcuts" in manifest.webmanifest (that's the menu
+  you get when you long-press the app icon).
+
+  After changing any file here, bump CACHE in sw.js
+  (lists-v1 → lists-v2) so phones pick up the new version.
+  ============================================================
+-->
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1b1a16" media="(prefers-color-scheme: dark)">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@1,600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #f2efe8; --surface: #fffdf8; --ink: #211f1a; --soft: #6a655b; --border: #ede3d1;
+    --today: #b8860b; --mail: #a6402e; --work: #2f6b63; --brain: #5f6e42;
+    --card-ink: #fffaf0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1a16; --surface: #2a2720; --ink: #efe9dc; --soft: #b0a996; --border: #4a4030;
+      --today: #e0b34d; --mail: #d97256; --work: #64bbaf; --brain: #a3b98a;
+      --card-ink: #1b1a16;
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    background-color: var(--bg);
+    background-image: radial-gradient(color-mix(in srgb, var(--soft) 18%, transparent) 1.2px, transparent 1.6px);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    padding: calc(env(safe-area-inset-top, 0px) + 28px) 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  main { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
+
+  .kicker {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--soft);
+  }
+
+  h1 {
+    font-family: "Spectral", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.9rem;
+    margin: 2px 0 10px;
+  }
+
+  a.list {
+    display: block;
+    text-decoration: none;
+    color: var(--card-ink);
+    background: var(--tone);
+    border-radius: 18px;
+    padding: 24px 22px;
+    border: 2px dashed color-mix(in srgb, var(--card-ink) 45%, transparent);
+    font-family: "Spectral", Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.55rem;
+    line-height: 1.2;
+    -webkit-tap-highlight-color: transparent;
+  }
+  a.list.big { padding: 34px 22px; font-size: 1.9rem; }
+  a.list span {
+    display: block;
+    margin-top: 6px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    opacity: 0.92;
+  }
+  a.list:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  a.list:active { transform: scale(0.985); }
+
+  .offline {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--mail);
+    border-radius: 0 10px 10px 0;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--soft);
+  }
+  body.is-offline .offline { display: block; }
+
+  footer {
+    margin-top: 6px;
+    text-align: center;
+    font-size: 0.74rem;
+    color: var(--soft);
+    line-height: 1.6;
+  }
+</style>
+</head>
+
+<body>
+<main>
+  <div>
+    <div class="kicker">Anna Shaver</div>
+    <h1 id="greeting">Lists</h1>
+  </div>
+
+  <div class="offline">You're offline. The lists live on claude.ai, so they'll open once you're back on wifi or data.</div>
+
+  <div id="cards"></div>
+
+  <footer>Tap a list to open it. Use the ✕ at the top to come back here.</footer>
+</main>
+
+<script>
+  // ---- The four lists. Edit links and labels here. ----
+  const LISTS = [
+    { key: "today", name: "Today",       sub: "Daily schedule",        tone: "var(--today)", url: "https://claude.ai/artifact/YBC86zSj2KQDHKqcPg7b3b", big: true },
+    { key: "mail",  name: "Mail Triage", sub: "What came in",          tone: "var(--mail)",  url: "https://claude.ai/artifact/7nUcX9kwU1ADfqMYw4vQj8" },
+    { key: "work",  name: "Work",        sub: "Course checklist",      tone: "var(--work)",  url: "https://claude.ai/artifact/Bqf9BrZTdoqpycKVCUeykR" },
+    { key: "brain", name: "Brain Dump",  sub: "Everything else",       tone: "var(--brain)", url: "https://claude.ai/artifact/U3nshGYiLgjhhcZRJfCLHv" }
+  ];
+  // -------------------------------------------------------
+
+  // Long-press shortcuts arrive as ?go=<key>; send them straight to that list.
+  const go = new URLSearchParams(location.search).get("go");
+  const target = LISTS.find(l => l.key === go);
+  if (target && navigator.onLine) {
+    location.replace(target.url);
+  }
+
+  document.getElementById("cards").innerHTML = LISTS.map(l => `
+    <a class="list ${l.big ? "big" : ""}" style="--tone:${l.tone}; margin-bottom:14px" href="${l.url}">
+      ${l.name}<span>${l.sub}</span>
+    </a>`).join("");
+
+  // Words, not numbers: "Thursday morning" instead of a date.
+  const now = new Date();
+  const h = now.getHours();
+  const part = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
+  document.getElementById("greeting").textContent =
+    now.toLocaleDateString([], { weekday: "long" }) + " " + part;
+
+  function syncOnline() { document.body.classList.toggle("is-offline", !navigator.onLine); }
+  addEventListener("online", syncOnline);
+  addEventListener("offline", syncOnline);
+  syncOnline();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+
+</body>
+</html>
