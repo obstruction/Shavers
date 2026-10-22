@@ -1,7 +1,7 @@
 {
   "name": "Anna's Lists",
   "short_name": "Lists",
-  "description": "Today, Mail Triage, Work and Brain Dump in one place.",
+  "description": "Opens straight to Today. Long-press for Mail Triage, Work and Brain Dump.",
   "id": "./",
   "start_url": "./",
   "scope": "./",
