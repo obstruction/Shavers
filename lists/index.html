@@ -9,9 +9,10 @@
   ============================================================
   Anna's Lists — installable home-screen app (PWA)
 
-  This page is a launcher. Each card opens one of the Claude
-  artifact pages, where the real checklists (and the morning
-  rebuilds) live. Nothing is stored here.
+  Opening the app goes straight to the Today page on claude.ai,
+  where the real checklists (and the morning rebuilds) live.
+  Long-press the app icon for Mail Triage, Work or Brain Dump.
+  Nothing is stored here.
 
   To change a list's link, edit the LISTS block in the script
   at the bottom of this file. If you rename or add one, also
@@ -68,20 +69,7 @@
 
   main { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
 
-  .kicker {
-    font-size: 0.72rem;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--soft);
-  }
 
-  h1 {
-    font-family: "Spectral", Georgia, serif;
-    font-style: italic;
-    font-weight: 600;
-    font-size: 1.9rem;
-    margin: 2px 0 10px;
-  }
 
   a.list {
     display: block;
@@ -125,67 +113,52 @@
   }
   body.is-offline .offline { display: block; }
 
-  footer {
-    margin-top: 6px;
-    text-align: center;
-    font-size: 0.74rem;
-    color: var(--soft);
-    line-height: 1.6;
-  }
 </style>
 </head>
 
 <body>
 <main>
-  <div>
-    <div class="kicker">Anna Shaver</div>
-    <h1 id="greeting">Lists</h1>
-  </div>
-
-  <div class="offline">You're offline. The lists live on claude.ai, so they'll open once you're back on wifi or data.</div>
+  <div class="offline">You're offline. Today lives on claude.ai, so it'll open once you're back on wifi or data.</div>
 
   <div id="cards"></div>
-
-  <footer>Tap a list to open it. Use the ✕ at the top to come back here.</footer>
 </main>
 
 <script>
   // ---- The four lists. Edit links and labels here. ----
+  // The app opens straight to "today". The others are reached by
+  // long-pressing the app icon (see "shortcuts" in manifest.webmanifest).
   const LISTS = [
-    { key: "today", name: "Today",       sub: "Daily schedule",        tone: "var(--today)", url: "https://claude.ai/artifact/YBC86zSj2KQDHKqcPg7b3b", big: true },
+    { key: "today", name: "Today",       sub: "Daily schedule",        tone: "var(--today)", url: "https://claude.ai/artifact/YBC86zSj2KQDHKqcPg7b3b" },
     { key: "mail",  name: "Mail Triage", sub: "What came in",          tone: "var(--mail)",  url: "https://claude.ai/artifact/7nUcX9kwU1ADfqMYw4vQj8" },
     { key: "work",  name: "Work",        sub: "Course checklist",      tone: "var(--work)",  url: "https://claude.ai/artifact/Bqf9BrZTdoqpycKVCUeykR" },
     { key: "brain", name: "Brain Dump",  sub: "Everything else",       tone: "var(--brain)", url: "https://claude.ai/artifact/U3nshGYiLgjhhcZRJfCLHv" }
   ];
   // -------------------------------------------------------
 
-  // Long-press shortcuts arrive as ?go=<key>; send them straight to that list.
+  // Long-press shortcuts arrive as ?go=<key>; plain launches go to Today.
   const go = new URLSearchParams(location.search).get("go");
-  const target = LISTS.find(l => l.key === go);
-  if (target && navigator.onLine) {
-    location.replace(target.url);
+  const target = LISTS.find(l => l.key === go) || LISTS[0];
+
+  // Let the offline helper (sw.js) finish setting up before leaving, so the
+  // app still opens without a connection. Waits at most a second and a half.
+  const swReady = "serviceWorker" in navigator
+    ? navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).catch(() => {})
+    : Promise.resolve();
+  if (navigator.onLine) {
+    Promise.race([swReady, new Promise(r => setTimeout(r, 1500))])
+      .then(() => location.replace(target.url));
   }
 
-  document.getElementById("cards").innerHTML = LISTS.map(l => `
-    <a class="list ${l.big ? "big" : ""}" style="--tone:${l.tone}; margin-bottom:14px" href="${l.url}">
-      ${l.name}<span>${l.sub}</span>
-    </a>`).join("");
-
-  // Words, not numbers: "Thursday morning" instead of a date.
-  const now = new Date();
-  const h = now.getHours();
-  const part = h < 12 ? "morning" : h < 17 ? "afternoon" : "evening";
-  document.getElementById("greeting").textContent =
-    now.toLocaleDateString([], { weekday: "long" }) + " " + part;
+  // Only seen offline, or after closing the list with the ✕: one button back in.
+  document.getElementById("cards").innerHTML = `
+    <a class="list big" style="--tone:${target.tone}" href="${target.url}">
+      ${target.name}<span>Tap to open</span>
+    </a>`;
 
   function syncOnline() { document.body.classList.toggle("is-offline", !navigator.onLine); }
   addEventListener("online", syncOnline);
   addEventListener("offline", syncOnline);
   syncOnline();
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
 </script>
 
 </body>
