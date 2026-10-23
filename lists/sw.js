@@ -1,6 +1,6 @@
 // Keeps the launcher itself working offline. The lists stay on claude.ai
 // and are never cached here. Bump CACHE after changing any file in lists/.
-const CACHE = "lists-v2";
+const CACHE = "lists-v3";
 const SHELL = [
   "./",
   "index.html",
@@ -12,7 +12,7 @@ const SHELL = [
 ];
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))));
   self.skipWaiting();
 });
 
@@ -23,12 +23,13 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
-// Network first, so edits show up right away; fall back to the cache offline.
+// Network first (skipping the browser cache), so edits show up right away;
+// fall back to the cache offline.
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== location.origin) return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: "no-cache" })
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(cache => cache.put(event.request, copy));
