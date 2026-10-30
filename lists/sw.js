@@ -1,6 +1,6 @@
 // Keeps the launcher itself working offline. The lists stay on claude.ai
 // and are never cached here. Bump CACHE after changing any file in lists/.
-const CACHE = "lists-v3";
+const CACHE = "lists-v4";
 const SHELL = [
   "./",
   "index.html",

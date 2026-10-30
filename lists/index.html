@@ -11,7 +11,7 @@
 
   Opening the app goes straight to the Today page on claude.ai,
   where the real checklists (and the morning rebuilds) live.
-  Long-press the app icon for Mail Triage, Work or Brain Dump.
+  Long-press the app icon for Mail Triage, Work, Brain Dump or Dinners.
   Nothing is stored here.
 
   To change a list's link, edit the LISTS block in the script
@@ -27,8 +27,8 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#1b1a16" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f2efe8">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,15 +37,9 @@
 <style>
   :root {
     --bg: #f2efe8; --surface: #fffdf8; --ink: #211f1a; --soft: #6a655b; --border: #ede3d1;
-    --today: #b8860b; --mail: #a6402e; --work: #2f6b63; --brain: #5f6e42;
+    color-scheme: light;
+    --today: #b8860b; --mail: #a6402e; --work: #2f6b63; --brain: #5f6e42; --dinners: #5a3d6b;
     --card-ink: #fffaf0;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1b1a16; --surface: #2a2720; --ink: #efe9dc; --soft: #b0a996; --border: #4a4030;
-      --today: #e0b34d; --mail: #d97256; --work: #64bbaf; --brain: #a3b98a;
-      --card-ink: #1b1a16;
-    }
   }
 
   * { box-sizing: border-box; }
@@ -124,14 +118,15 @@
 </main>
 
 <script>
-  // ---- The four lists. Edit links and labels here. ----
+  // ---- The five lists. Edit links and labels here. ----
   // The app opens straight to "today". The others are reached by
   // long-pressing the app icon (see "shortcuts" in manifest.webmanifest).
   const LISTS = [
     { key: "today", name: "Today",       sub: "Daily schedule",        tone: "var(--today)", url: "https://claude.ai/artifact/YBC86zSj2KQDHKqcPg7b3b" },
     { key: "mail",  name: "Mail Triage", sub: "What came in",          tone: "var(--mail)",  url: "https://claude.ai/artifact/7nUcX9kwU1ADfqMYw4vQj8" },
     { key: "work",  name: "Work",        sub: "Course checklist",      tone: "var(--work)",  url: "https://claude.ai/artifact/Bqf9BrZTdoqpycKVCUeykR" },
-    { key: "brain", name: "Brain Dump",  sub: "Everything else",       tone: "var(--brain)", url: "https://claude.ai/artifact/U3nshGYiLgjhhcZRJfCLHv" }
+    { key: "brain", name: "Brain Dump",  sub: "Everything else",       tone: "var(--brain)", url: "https://claude.ai/artifact/U3nshGYiLgjhhcZRJfCLHv" },
+    { key: "dinners", name: "Dinners",   sub: "This week's dinners",   tone: "var(--dinners)", url: "https://obstruction.github.io/Shavers/" }
   ];
   // -------------------------------------------------------
 
