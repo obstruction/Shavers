@@ -239,11 +239,45 @@
   @media (prefers-reduced-motion: no-preference) {
     .card { transition: transform 0.15s ease; }
   }
+  /* Desk menu: same index-card tabs as Today, Mail Triage, Work and
+     Brain Dump on claude.ai. Dinners is the current tab here. */
+  .desk-nav {
+    --t-today: #b8860b; --t-mail: #a6402e; --t-work: #2f6b63; --t-brain: #5f6e42; --t-dinners: #5a3d6b;
+    width: 100%; max-width: 460px;
+    display: flex; justify-content: flex-end; align-items: flex-end; gap: 3px;
+    padding: 0 12px; margin: 0 0 -1px; position: relative; z-index: 1;
+    overflow-x: auto; scrollbar-width: none;
+  }
+  .desk-nav a, .desk-nav span {
+    flex: 0 0 auto; white-space: nowrap; text-decoration: none;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    background: color-mix(in srgb, var(--tab) 16%, var(--surface));
+    border: 1px solid var(--border); border-top: 3px solid var(--tab); border-bottom: none;
+    border-radius: 7px 7px 0 0; padding: 5px 11px 4px;
+  }
+  .desk-nav a:hover { color: var(--ink); background: color-mix(in srgb, var(--tab) 26%, var(--surface)); }
+  .desk-nav a:focus-visible { outline: 2px solid var(--tab); outline-offset: -2px; }
+  .desk-nav [aria-current="page"] {
+    color: var(--ink); background-color: var(--surface); background-image: var(--linen);
+    padding: 8px 14px 7px; font-size: 0.76rem;
+  }
+  .desk-nav .t-today { --tab: var(--t-today); }
+  .desk-nav .t-mail { --tab: var(--t-mail); }
+  .desk-nav .t-work { --tab: var(--t-work); }
+  .desk-nav .t-brain { --tab: var(--t-brain); }
+  .desk-nav .t-dinners { --tab: var(--t-dinners); }
+  @media (max-width: 480px) {
+    .desk-nav { padding: 0 2px; gap: 2px; }
+    .desk-nav a, .desk-nav span { padding: 5px 6px 4px; font-size: 0.68rem; letter-spacing: 0.02em; }
+    .desk-nav [aria-current="page"] { padding: 8px 9px 7px; font-size: 0.72rem; }
+  }
 </style>
 </head>
 
 <body>
 
+<nav class="desk-nav" aria-label="My pages"><a class="t-today" href="https://claude.ai/artifact/YBC86zSj2KQDHKqcPg7b3b">Today</a><a class="t-mail" href="https://claude.ai/artifact/7nUcX9kwU1ADfqMYw4vQj8">Mail Triage</a><a class="t-work" href="https://claude.ai/artifact/Bqf9BrZTdoqpycKVCUeykR">Work</a><a class="t-brain" href="https://claude.ai/artifact/U3nshGYiLgjhhcZRJfCLHv">Brain Dump</a><span class="t-dinners" aria-current="page">Dinners</span></nav>
 <header class="masthead-card">
   <div class="patch" aria-hidden="true">🍽️</div>
   <div class="masthead-text">
