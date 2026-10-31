@@ -239,6 +239,64 @@
   @media (prefers-reduced-motion: no-preference) {
     .card { transition: transform 0.15s ease; }
   }
+  /* ---------- editing ---------- */
+  button.card { display: block; width: 100%; text-align: left; font: inherit; border: 0; cursor: pointer; }
+  button.card:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  button.card:active { transform: scale(0.99); }
+  button.tag { font: inherit; font-size: 0.8rem; border: 0; cursor: pointer; }
+  .rec-hint { margin-top: 10px; font-size: 0.75rem; color: var(--ink-soft); }
+  body.saving main { opacity: 0.6; pointer-events: none; }
+
+  #sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; }
+  #sheet[hidden] { display: none; }
+  #sheet-scrim { position: absolute; inset: 0; background: rgba(33,31,26,.35); }
+  .sheet-card {
+    position: relative; width: 100%; max-width: 480px; max-height: 82vh; overflow-y: auto;
+    background-color: var(--surface); background-image: var(--linen);
+    border-radius: 14px 14px 0 0; border-top: 4px solid var(--accent);
+    box-shadow: 0 -4px 24px rgba(33,31,26,.18);
+    padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 20px);
+  }
+  .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sheet-head h2 { flex: 1; margin: 0; font-family: "Spectral", Georgia, serif; font-style: italic; font-weight: 600; font-size: 1.3rem; }
+  #sheet-close { border: 1.5px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; width: 36px; height: 36px; font-size: 1rem; cursor: pointer; }
+  #sheet-body h3 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.75rem; letter-spacing: 0.09em; text-transform: uppercase;
+    color: var(--accent); margin: 14px 0 6px; font-weight: 500;
+  }
+  #sheet-body .group[hidden] { display: none; }
+  #meal-search {
+    width: 100%; font: inherit; font-size: 1rem; padding: 10px 14px;
+    border: 1.5px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  }
+  #meal-search:focus { outline: none; border-color: var(--accent); }
+  .opt {
+    display: inline-block; font: inherit; font-size: 0.95rem; color: var(--ink);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 8px 14px; margin: 0 6px 8px 0; cursor: pointer; text-align: left;
+  }
+  .opt[hidden] { display: none; }
+  .opt:active { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); }
+  .opt[data-day], .opt.big { display: block; width: 100%; border-radius: 10px; padding: 12px 14px; margin: 0 0 8px; }
+  .opt.big { font-size: 1.05rem; }
+  .opt-day {
+    display: inline-block; min-width: 92px; margin-right: 8px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.8rem; color: var(--ink-soft);
+  }
+  .opt em { color: var(--ink-faint); }
+  .note { color: var(--ink-soft); }
+  body.sheet-open { overflow: hidden; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 22px); z-index: 30;
+    transform: translate(-50%, 140%); transition: transform .2s ease;
+    background: var(--ink); color: var(--surface); border-radius: 999px;
+    padding: 10px 18px; font-size: 0.9rem; max-width: 90vw; text-align: center;
+  }
+  #toast.show { transform: translate(-50%, 0); }
+  #toast.bad { background: var(--red); }
+
   /* Desk menu: same index-card tabs as Today, Mail Triage, Work and
      Brain Dump on claude.ai. Dinners is the current tab here. */
   .desk-nav {
@@ -298,10 +356,24 @@
 
 <footer id="updated"></footer>
 
+<div id="sheet" hidden>
+  <div id="sheet-scrim"></div>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-head">
+      <h2 id="sheet-title"></h2>
+      <button id="sheet-close" aria-label="Close">✕</button>
+    </div>
+    <div id="sheet-body"></div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+
 <script>
-  // ---- 1. PASTE YOUR PUBLISHED CSV LINK HERE ----
+  // ---- Live editing: paste the Apps Script web app URL here ----
+  // (see apps-script/Code.gs). Leave empty for read-only via the CSV.
+  const SCRIPT_URL = "";
+  // ---------------------------------------------------------------
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRdJ1KwgfNVSHhrjVkqHsgin-9qaiYrv4BQazSnkOXvlkeYZASFM1pS5gQigMmu0RHax41Le7-HW5BX/pub?gid=374504700&single=true&output=csv";
-  // -------------------------------------------------
 
   const REFRESH_MINUTES = 5;
 
@@ -343,109 +415,251 @@
     return "🍽️";
   }
 
-  function isToday(dateCellText) {
-    if (!dateCellText) return false;
-    const match = dateCellText.match(/(\d{1,2})\/(\d{1,2})/);
-    if (!match) return false;
-    const now = new Date();
-    return parseInt(match[1], 10) === now.getMonth() + 1 &&
-           parseInt(match[2], 10) === now.getDate();
+  let state = { days: [], recs: [], meals: [] };
+  const editable = () => !!SCRIPT_URL;
+
+  function esc(t) {
+    return String(t == null ? "" : t).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function render(rows, recNames) {
-    const container = document.getElementById("cards");
-    const dataRows = rows.filter(r => r[0] && r[0].trim() !== "");
+  function isToday(label) {
+    const m = (label || "").match(/(\d{1,2})\/(\d{1,2})/);
+    if (!m) return false;
+    const now = new Date();
+    return +m[1] === now.getMonth() + 1 && +m[2] === now.getDate();
+  }
 
-    if (dataRows.length === 0 && (!recNames || recNames.length === 0)) {
-      container.innerHTML = '<div class="empty">Nothing coming up right now 🌤️</div>';
+  function render() {
+    const { days, recs } = state;
+    const box = document.getElementById("cards");
+    if (!days.length && !recs.length) {
+      box.innerHTML = '<div class="empty">Nothing coming up right now 🌤️</div>';
       return;
     }
-
     let html = "";
-    dataRows.forEach((row, i) => {
-      const [date, meal, notes, prep, url, image] = row;
-      const today = isToday(date);
-      const colorClass = PALETTE[i % PALETTE.length];
-      const hasMeal = meal && meal.trim() !== "";
-      const emoji = hasMeal ? pickEmoji(meal) : "❓";
-      const tags = [notes, prep].filter(t => t && t.trim() !== "");
-      const hasRecipe = hasMeal && url && /^https?:\/\//i.test(url.trim());
-      const hasImage = hasMeal && image && /^https?:\/\//i.test(image.trim());
-
+    days.forEach((d, i) => {
+      const today = isToday(d.label);
+      const color = PALETTE[i % PALETTE.length];
+      const hasMeal = (d.meal || "").trim() !== "";
+      const emoji = hasMeal ? pickEmoji(d.meal) : "❓";
+      const tags = [d.notes, d.prep].filter(t => t && t.trim() !== "");
+      const firstUrl = (d.url || "").split(",")[0].trim();
+      const hasRecipe = hasMeal && /^https?:\/\//i.test(firstUrl);
+      const img = (d.image || "").trim();
+      const hasImage = hasMeal && /^https?:\/\//i.test(img);
       const visual = hasImage
-        ? `<img class="thumb" src="${image.trim()}" alt="" onerror="this.outerHTML='<div class=&quot;emoji&quot;>${emoji}</div>';">`
+        ? `<img class="thumb" src="${esc(img)}" alt="" onerror="this.outerHTML='<div class=&quot;emoji&quot;>${emoji}</div>';">`
         : `<div class="emoji">${emoji}</div>`;
-
+      const tag = editable() ? "button" : "div";
       html += `
-        <div class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"} ${hasImage ? "has-thumb" : ""}" style="--tone:var(--${colorClass});--card-ink:var(--${colorClass}-ink)">
+        <${tag} class="card ${today ? "today" : ""} ${hasMeal ? "" : "unplanned"} ${hasImage ? "has-thumb" : ""} ${editable() ? "tappable" : ""}"
+             style="--tone:var(--${color});--card-ink:var(--${color}-ink)" data-i="${i}">
           ${visual}
           ${today ? '<div class="ribbon">⭐ TODAY</div><br>' : ""}
-          <div class="day">${date}</div>
-          <div class="meal">${hasMeal ? meal : "Pick a meal!"}</div>
-          ${tags.map(t => `<span class="tag">${t}</span>`).join(" ")}
-          ${hasRecipe ? `<a class="tag recipe-link" href="${url.trim()}" target="_blank" rel="noopener">📖 Recipe</a>` : ""}
-        </div>`;
+          <div class="day">${esc(d.label)}</div>
+          <div class="meal">${hasMeal ? esc(d.meal) : (editable() ? "Tap to pick a meal!" : "Pick a meal!")}</div>
+          ${tags.map(t => `<span class="tag">${esc(t)}</span>`).join(" ")}
+          ${hasRecipe ? `<a class="tag recipe-link" href="${esc(firstUrl)}" target="_blank" rel="noopener">📖 Recipe</a>` : ""}
+        </${tag}>`;
     });
-
-    if (recNames && recNames.length > 0) {
+    if (recs.length) {
       html += `
         <div class="card rec-card">
           <div class="emoji">🎲</div>
           <div class="day">Try something new</div>
-          ${recNames.map(n => `<span class="tag rec-tag">${n}</span>`).join(" ")}
+          ${recs.map((n, k) => editable()
+            ? `<button class="tag rec-tag" data-rec="${k}">${esc(n)}</button>`
+            : `<span class="tag rec-tag">${esc(n)}</span>`).join(" ")}
+          ${editable() ? '<div class="rec-hint">Tap one to put it on a day</div>' : ""}
         </div>`;
     }
-
-    container.innerHTML = html;
+    box.innerHTML = html;
   }
 
-  function showError(message) {
-    document.getElementById("cards").innerHTML = `<div class="error">${message}</div>`;
+  /* ---------- bottom sheet ---------- */
+  const sheet = () => document.getElementById("sheet");
+  function openSheet(title, bodyHtml) {
+    document.getElementById("sheet-title").textContent = title;
+    document.getElementById("sheet-body").innerHTML = bodyHtml;
+    sheet().hidden = false;
+    document.body.classList.add("sheet-open");
+  }
+  function closeSheet() {
+    sheet().hidden = true;
+    document.body.classList.remove("sheet-open");
+  }
+
+  function dayLine(d, i) {
+    const hasMeal = (d.meal || "").trim() !== "";
+    return `<button class="opt" data-day="${i}"><span class="opt-day">${esc(d.label)}</span>${hasMeal ? esc(d.meal) : '<em>open</em>'}</button>`;
+  }
+
+  function mealPicker(i) {
+    const d = state.days[i];
+    const mains = state.meals.filter(m => m.main).map(m => m.name);
+    const others = state.meals.filter(m => !m.main).map(m => m.name);
+    const chip = n => `<button class="opt meal-opt" data-meal="${esc(n)}">${esc(n)}</button>`;
+    let body = `<input id="meal-search" type="search" placeholder="Search meals" autocomplete="off">`;
+    if (state.recs.length) body += `<div class="group" data-g><h3>Try something new</h3>${state.recs.map(chip).join("")}</div>`;
+    body += `<div class="group" data-g><h3>Mains</h3>${mains.map(chip).join("")}</div>`;
+    if (others.length) body += `<div class="group" data-g><h3>Everything else</h3>${others.map(chip).join("")}</div>`;
+    openSheet(`Dinner for ${d.label}`, body);
+    const search = document.getElementById("meal-search");
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      document.querySelectorAll("#sheet-body .meal-opt").forEach(b => {
+        b.hidden = q && !b.dataset.meal.toLowerCase().includes(q);
+      });
+      document.querySelectorAll("#sheet-body [data-g]").forEach(g => {
+        g.hidden = ![...g.querySelectorAll(".meal-opt")].some(b => !b.hidden);
+      });
+    });
+    sheet().onclick = ev => {
+      const b = ev.target.closest(".meal-opt");
+      if (b) save({ action: "set", date: d.iso, meal: b.dataset.meal }, `${b.dataset.meal} on ${d.label}`);
+    };
+  }
+
+  function swapPicker(i) {
+    const d = state.days[i];
+    openSheet(`Swap ${d.label} with…`,
+      state.days.map((x, k) => k === i ? "" : dayLine(x, k)).join(""));
+    sheet().onclick = ev => {
+      const b = ev.target.closest("[data-day]");
+      if (b) save({ action: "swap", a: d.iso, b: state.days[+b.dataset.day].iso }, `Swapped ${d.label} and ${state.days[+b.dataset.day].label}`);
+    };
+  }
+
+  function dayMenu(i) {
+    const d = state.days[i];
+    const hasMeal = (d.meal || "").trim() !== "";
+    if (!hasMeal) return mealPicker(i);
+    openSheet(`${d.label}: ${d.meal}`, `
+      <button class="opt big" data-act="change">🍽️ Change the meal</button>
+      <button class="opt big" data-act="swap">🔁 Swap with another day</button>
+      <button class="opt big" data-act="clear">🧹 Clear this day</button>`);
+    sheet().onclick = ev => {
+      const b = ev.target.closest("[data-act]");
+      if (!b) return;
+      if (b.dataset.act === "change") mealPicker(i);
+      if (b.dataset.act === "swap") swapPicker(i);
+      if (b.dataset.act === "clear") save({ action: "set", date: d.iso, meal: "" }, `Cleared ${d.label}`);
+    };
+  }
+
+  function recPicker(k) {
+    const name = state.recs[k];
+    const open = state.days.map((d, i) => [d, i]).filter(([d]) => !(d.meal || "").trim());
+    const taken = state.days.map((d, i) => [d, i]).filter(([d]) => (d.meal || "").trim());
+    let body = "";
+    if (open.length) body += `<div class="group"><h3>Open days</h3>${open.map(([d, i]) => dayLine(d, i)).join("")}</div>`;
+    if (taken.length) body += `<div class="group"><h3>Replace a planned day</h3>${taken.map(([d, i]) => dayLine(d, i)).join("")}</div>`;
+    openSheet(`Put ${name} on…`, body || '<p class="note">No days to put it on.</p>');
+    sheet().onclick = ev => {
+      const b = ev.target.closest("[data-day]");
+      if (!b) return;
+      const d = state.days[+b.dataset.day];
+      save({ action: "set", date: d.iso, meal: name }, `${name} on ${d.label}`);
+    };
+  }
+
+  /* ---------- saving ---------- */
+  function getCode() {
+    try { return localStorage.getItem("dinnersCode") || ""; } catch (e) { return ""; }
+  }
+  function setCode(c) {
+    try { c ? localStorage.setItem("dinnersCode", c) : localStorage.removeItem("dinnersCode"); } catch (e) {}
+  }
+  let sessionCode = "";
+
+  function toast(msg, bad) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.className = bad ? "show bad" : "show";
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => { t.className = ""; }, 2600);
+  }
+
+  async function save(payload, doneMsg) {
+    let code = sessionCode || getCode();
+    if (!code) {
+      code = (prompt("Family code?") || "").trim();
+      if (!code) return;
+    }
+    closeSheet();
+    document.body.classList.add("saving");
+    toast("Saving…");
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(Object.assign({ code }, payload))
+      });
+      const data = await res.json();
+      if (data.error === "code") {
+        setCode(""); sessionCode = "";
+        toast("That family code didn't work. Try again.", true);
+        return;
+      }
+      if (data.error) throw new Error(data.error);
+      sessionCode = code; setCode(code);
+      apply(data);
+      toast("✓ " + doneMsg);
+    } catch (err) {
+      toast("Couldn't save: " + err.message, true);
+    } finally {
+      document.body.classList.remove("saving");
+    }
+  }
+
+  /* ---------- loading ---------- */
+  function apply(data) {
+    state = { days: data.days || [], recs: data.recs || [], meals: data.meals || [] };
+    render();
+    document.getElementById("subline").textContent =
+      "updated " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    document.getElementById("updated").textContent =
+      (editable() ? "tap a day to change it · " : "") + "refreshes every " + REFRESH_MINUTES + " min";
+  }
+
+  function fromCsv(text) {
+    const rows = Papa.parse(text.trim(), { skipEmptyLines: false }).data;
+    const head = rows.findIndex(r => r[0] && /^(day|date)$/i.test(r[0].trim()));
+    const rec = rows.findIndex(r => r[0] && /^recommender:?$/i.test(r[0].trim()));
+    const end = rec === -1 ? rows.length : rec;
+    const days = rows.slice(head === -1 ? 1 : head + 1, end)
+      .filter(r => r[0] && r[0].trim() !== "")
+      .map(([label, meal, notes, prep, url, image]) => ({ label, meal, notes, prep, url, image }));
+    const recs = rec === -1 ? [] :
+      [...new Set(rows.slice(rec + 1).map(r => (r[0] || "").trim()).filter(Boolean))];
+    return { days, recs, meals: [] };
   }
 
   function load() {
-    if (!CSV_URL || CSV_URL.indexOf("PASTE_YOUR") === 0) {
-      showError("Add your published CSV link in the code (see the SETUP comment at the top of the file).");
-      document.getElementById("subline").textContent = "not connected yet";
-      return;
-    }
-
-    fetch(CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "t=" + Date.now())
+    if (document.body.classList.contains("sheet-open") || document.body.classList.contains("saving")) return;
+    const url = SCRIPT_URL || CSV_URL;
+    fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now())
       .then(res => {
-        if (!res.ok) throw new Error("Couldn't reach the sheet (" + res.status + ")");
-        return res.text();
+        if (!res.ok) throw new Error("(" + res.status + ")");
+        return SCRIPT_URL ? res.json() : res.text().then(fromCsv);
       })
-      .then(csvText => {
-        const parsed = Papa.parse(csvText.trim(), { skipEmptyLines: false });
-        const allRows = parsed.data;
-
-        const headerIndex = allRows.findIndex(r => r[0] && /^(day|date)$/i.test(r[0].trim()));
-        const recIndex = allRows.findIndex(r => r[0] && /^recommender:?$/i.test(r[0].trim()));
-
-        const dayRowsEnd = recIndex === -1 ? allRows.length : recIndex;
-        const dayRows = headerIndex === -1
-          ? allRows.slice(1, dayRowsEnd)
-          : allRows.slice(headerIndex + 1, dayRowsEnd);
-
-        const recNames = recIndex === -1 ? [] :
-          [...new Set(
-            allRows.slice(recIndex + 1)
-              .map(r => (r[0] || "").trim())
-              .filter(name => name !== "")
-          )];
-
-        render(dayRows, recNames);
-        const now = new Date();
-        document.getElementById("subline").textContent =
-          "updated " + now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-        document.getElementById("updated").textContent =
-          "refreshes automatically every " + REFRESH_MINUTES + " min";
-      })
+      .then(apply)
       .catch(err => {
-        showError("Couldn't load the sheet. " + err.message);
+        document.getElementById("cards").innerHTML = `<div class="error">Couldn't load the sheet. ${esc(err.message)}</div>`;
         document.getElementById("subline").textContent = "connection trouble";
       });
   }
+
+  document.getElementById("cards").addEventListener("click", ev => {
+    if (!editable() || ev.target.closest("a")) return;
+    const rec = ev.target.closest("[data-rec]");
+    if (rec) return recPicker(+rec.dataset.rec);
+    const card = ev.target.closest(".card[data-i]");
+    if (card) dayMenu(+card.dataset.i);
+  });
+  document.getElementById("sheet-close").addEventListener("click", closeSheet);
+  document.getElementById("sheet-scrim").addEventListener("click", closeSheet);
+  addEventListener("keydown", ev => { if (ev.key === "Escape") closeSheet(); });
 
   load();
   setInterval(load, REFRESH_MINUTES * 60 * 1000);
